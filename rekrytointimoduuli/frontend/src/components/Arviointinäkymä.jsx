@@ -100,10 +100,10 @@ const Arviointinäkymä = () => {
           style={{
             border: "1px solid #ccc",
             marginTop: "20px",
-            width: "40vw", // Adjust width dynamically based on viewport width
-            height: "100vh", // Adjust height dynamically based on viewport height
-            maxWidth: "1200px", // Limit maximum width
-            margin: "0 auto", // Center the preview
+            width: "40vw", 
+            height: "100vh",
+            maxWidth: "1200px",
+            margin: "0 auto",
           }}
         >
           <h3>Resume Preview</h3>
