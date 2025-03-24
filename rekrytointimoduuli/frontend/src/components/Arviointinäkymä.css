@@ -1,0 +1,14 @@
+.pdf-preview {
+  border: 1px solid #ccc;
+  margin: 20px auto;
+  width: 90vw;
+  height: 80vh;
+  max-width: 1200px;
+}
+
+@media (max-width: 600px) {
+  .pdf-preview {
+    width: 100vw;
+    height: 70vh;
+  }
+}
