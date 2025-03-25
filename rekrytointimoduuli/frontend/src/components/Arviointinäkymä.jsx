@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Worker, Viewer } from "@react-pdf-viewer/core";
-import "@react-pdf-viewer/core/lib/styles/index.css";
+import { Worker, Viewer } from "@react-pdf-viewer/core"; // Use project-centered path for react-pdf-viewer
+import "@react-pdf-viewer/core/lib/styles/index.css"; // Use project-centered path for styles
 import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 
 const Arviointinäkymä = () => {
@@ -100,7 +100,7 @@ const Arviointinäkymä = () => {
           style={{
             border: "1px solid #ccc",
             marginTop: "20px",
-            width: "40vw", 
+            width: "40vw",
             height: "100vh",
             maxWidth: "1200px",
             margin: "0 auto",
@@ -108,9 +108,7 @@ const Arviointinäkymä = () => {
         >
           <h3>Resume Preview</h3>
           <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-            <Viewer
-              fileUrl={selectedPdf}
-            />
+            <Viewer fileUrl={selectedPdf} />
           </Worker>
           <button onClick={() => setSelectedPdf(null)}>Close Preview</button>
         </div>
