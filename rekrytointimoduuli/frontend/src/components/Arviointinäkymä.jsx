@@ -75,11 +75,15 @@ const Arviointinäkymä = () => {
             {detail.email && <p>Email: {detail.email}</p>}
             {detail.phone && <p>Phone: {detail.phone}</p>}
             {detail.skills && <p>Skills: {detail.skills.join(", ")}</p>}
+            {detail.skillRatings && (
+              <p>Skill Ratings: {detail.skillRatings.join(", ")}</p>
+            )}
             {detail.portfolio && <p>Portfolio: {detail.portfolio}</p>}
             {detail.additionalInfo && (
               <p>Additional Info: {detail.additionalInfo}</p>
             )}
             {detail.availability && <p>Availability: {detail.availability}</p>}
+            {detail.summary && <p>Summary: {detail.summary}</p>}
             {detail.resumeUrl && (
               <p>
                 Resume:{" "}

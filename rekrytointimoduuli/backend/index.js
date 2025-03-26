@@ -54,15 +54,43 @@ app.get("/test", (req, res) => {
   res.json({ message: "Test route is working!" });
 });
 
-// Ensure /upload is registered before any catch-all routes
+// Ensure /upload is registered before the catch-all route
 app.post("/upload", upload.single("resume"), async (req, res) => {
   try {
-    console.log("Received fields:", req.body);
-    console.log("Received file:", req.file);
+    console.log("Received fields:", req.body); // Debugging log
+    console.log("Received file:", req.file); // Debugging log
 
     if (!req.file) {
+      console.error("Resume file is missing"); // Debugging log
       return res.status(400).json({ error: "Resume file is required" });
     }
+
+    // Parse and validate skillRatings
+    let skillRatings;
+    try {
+      skillRatings = JSON.parse(req.body.skillRatings);
+      if (!Array.isArray(skillRatings)) {
+        throw new Error("skillRatings is not an array");
+      }
+      skillRatings.forEach((rating, index) => {
+        if (
+          typeof rating.skill !== "string" ||
+          typeof rating.rating !== "number" ||
+          typeof rating.summary !== "string"
+        ) {
+          throw new Error(
+            `Invalid skillRatings structure at index ${index}: ${JSON.stringify(
+              rating
+            )}`
+          );
+        }
+      });
+    } catch (error) {
+      console.error("Invalid skillRatings format:", error.message); // Debugging log
+      return res.status(400).json({ error: "Invalid skillRatings format" });
+    }
+
+    console.log("Validated skillRatings:", skillRatings); // Debugging log
 
     // Generate unique timestamp for consistent naming
     const timestamp = Date.now();
@@ -87,7 +115,9 @@ app.post("/upload", upload.single("resume"), async (req, res) => {
       email: req.body.email,
       phone: req.body.phone,
       skills: JSON.parse(req.body.skills),
-      portfolio: req.body.portfolio,
+      skillRatings, // Use validated skillRatings
+      github: req.body.github || "Empty", // Handle optional GitHub URL
+      linkedin: req.body.linkedin || "Empty", // Handle optional LinkedIn URL
       additionalInfo: req.body.additionalInfo || "",
       availability: req.body.availability || "",
     };
@@ -105,7 +135,7 @@ app.post("/upload", upload.single("resume"), async (req, res) => {
 
     res.json({ message: "Details saved to Azure Blob Storage" });
   } catch (error) {
-    console.error("Error uploading to Azure Blob Storage:", error.message);
+    console.error("Error during upload:", error); // Debugging log
     res.status(500).json({
       error: "Failed to save details to Azure Blob Storage",
       details: error.message,
