@@ -69,6 +69,7 @@ app.post("/upload", upload.single("resume"), async (req, res) => {
     let skillRatings;
     try {
       skillRatings = JSON.parse(req.body.skillRatings);
+      console.log("Parsed skillRatings:", skillRatings); // Debugging log
       if (!Array.isArray(skillRatings)) {
         throw new Error("skillRatings is not an array");
       }
@@ -121,6 +122,8 @@ app.post("/upload", upload.single("resume"), async (req, res) => {
       additionalInfo: req.body.additionalInfo || "",
       availability: req.body.availability || "",
     };
+
+    console.log("Prepared metadata:", metadata); // Debugging log
 
     console.log("Uploading metadata to Azure Blob Storage:", metadataBlobName);
     await metadataBlobClient.upload(

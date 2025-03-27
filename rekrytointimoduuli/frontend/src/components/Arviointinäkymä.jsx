@@ -76,7 +76,22 @@ const Arviointinäkymä = () => {
             {detail.phone && <p>Phone: {detail.phone}</p>}
             {detail.skills && <p>Skills: {detail.skills.join(", ")}</p>}
             {detail.skillRatings && (
-              <p>Skill Ratings: {detail.skillRatings.join(", ")}</p>
+              <div>
+                <h3>Skill Ratings</h3>
+                {detail.skillRatings.length > 0 ? (
+                  <ul>
+                    {detail.skillRatings.map((rating, index) => (
+                      <li key={index}>
+                        <strong>Skill:</strong> {rating.skill} <br />
+                        <strong>Rating:</strong> {rating.rating} <br />
+                        <strong>Summary:</strong> {rating.summary}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No skill ratings available.</p>
+                )}
+              </div>
             )}
             {detail.portfolio && <p>Portfolio: {detail.portfolio}</p>}
             {detail.additionalInfo && (
