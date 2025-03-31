@@ -55,96 +55,138 @@ app.get("/test", (req, res) => {
 });
 
 // Ensure /upload is registered before the catch-all route
-app.post("/upload", upload.single("resume"), async (req, res) => {
-  try {
-    console.log("Received fields:", req.body); // Debugging log
-    console.log("Received file:", req.file); // Debugging log
-
-    if (!req.file) {
-      console.error("Resume file is missing"); // Debugging log
-      return res.status(400).json({ error: "Resume file is required" });
-    }
-
-    // Parse and validate skillRatings
-    let skillRatings;
+app.post(
+  "/upload",
+  upload.fields([{ name: "resume" }, { name: "profilePicture" }]),
+  async (req, res) => {
     try {
-      skillRatings = JSON.parse(req.body.skillRatings);
-      console.log("Parsed skillRatings:", skillRatings); // Debugging log
-      if (!Array.isArray(skillRatings)) {
-        throw new Error("skillRatings is not an array");
+      console.log("Received fields:", req.body); // Debugging log
+      console.log("Received files:", req.files); // Debugging log
+
+      if (!req.files || !req.files.resume) {
+        console.error("Resume file is missing"); // Debugging log
+        return res.status(400).json({ error: "Resume file is required" });
       }
-      skillRatings.forEach((rating, index) => {
-        if (
-          typeof rating.skill !== "string" ||
-          typeof rating.rating !== "number" ||
-          typeof rating.summary !== "string"
-        ) {
-          throw new Error(
-            `Invalid skillRatings structure at index ${index}: ${JSON.stringify(
-              rating
-            )}`
-          );
+
+      // Parse and validate skillRatings
+      let skillRatings;
+      try {
+        skillRatings = JSON.parse(req.body.skillRatings);
+        console.log("Parsed skillRatings:", skillRatings); // Debugging log
+        if (!Array.isArray(skillRatings)) {
+          throw new Error("skillRatings is not an array");
         }
-      });
+        skillRatings.forEach((rating, index) => {
+          if (
+            typeof rating.skill !== "string" ||
+            typeof rating.rating !== "number" ||
+            typeof rating.summary !== "string"
+          ) {
+            throw new Error(
+              `Invalid skillRatings structure at index ${index}: ${JSON.stringify(
+                rating
+              )}`
+            );
+          }
+        });
+      } catch (error) {
+        console.error("Invalid skillRatings format:", error.message); // Debugging log
+        return res.status(400).json({ error: "Invalid skillRatings format" });
+      }
+
+      console.log("Validated skillRatings:", skillRatings); // Debugging log
+
+      // Generate unique timestamp for consistent naming
+      const timestamp = Date.now();
+
+      // Upload the resume file to Azure Blob Storage
+      const resumeBlobName = `${req.body.name}-${timestamp}${path.extname(
+        req.files.resume[0].originalname
+      )}`;
+      const resumeBlobClient =
+        containerClient.getBlockBlobClient(resumeBlobName);
+
+      console.log("Uploading resume to Azure Blob Storage:", resumeBlobName);
+      await resumeBlobClient.uploadFile(req.files.resume[0].path);
+      console.log("Resume uploaded successfully:", resumeBlobName);
+
+      // Upload the profile picture file to Azure Blob Storage (if provided)
+      let profilePictureBlobName = null;
+      if (req.files.profilePicture && req.files.profilePicture[0]) {
+        profilePictureBlobName = `${
+          req.body.name
+        }-profile-${timestamp}${path.extname(
+          req.files.profilePicture[0].originalname
+        )}`;
+        const profilePictureBlobClient = containerClient.getBlockBlobClient(
+          profilePictureBlobName
+        );
+
+        console.log(
+          "Uploading profile picture to Azure Blob Storage:",
+          profilePictureBlobName
+        );
+        await profilePictureBlobClient.uploadFile(
+          req.files.profilePicture[0].path
+        );
+        console.log(
+          "Profile picture uploaded successfully:",
+          profilePictureBlobName
+        );
+      }
+
+      // Prepare metadata
+      const metadataBlobName = `${req.body.name}-${timestamp}.json`;
+      const metadataBlobClient =
+        containerClient.getBlockBlobClient(metadataBlobName);
+
+      const metadata = {
+        name: req.body.name,
+        email: req.body.email,
+        phone: req.body.phone,
+        skills: JSON.parse(req.body.skills),
+        skillRatings, // Use validated skillRatings
+        github: req.body.github || "Empty", // Handle optional GitHub URL
+        linkedin: req.body.linkedin || "Empty", // Handle optional LinkedIn URL
+        additionalInfo: req.body.additionalInfo || "",
+        availability: req.body.availability || "",
+        profilePicture: profilePictureBlobName, // Include profile picture blob name
+      };
+
+      console.log("Prepared metadata:", metadata); // Debugging log
+
+      console.log(
+        "Uploading metadata to Azure Blob Storage:",
+        metadataBlobName
+      );
+      await metadataBlobClient.upload(
+        JSON.stringify(metadata),
+        Buffer.byteLength(JSON.stringify(metadata))
+      );
+      console.log("Metadata uploaded successfully:", metadataBlobName);
+
+      // Clean up temporary files
+      fs.unlinkSync(req.files.resume[0].path);
+      console.log("Temporary resume file deleted:", req.files.resume[0].path);
+
+      if (req.files.profilePicture && req.files.profilePicture[0]) {
+        fs.unlinkSync(req.files.profilePicture[0].path);
+        console.log(
+          "Temporary profile picture file deleted:",
+          req.files.profilePicture[0].path
+        );
+      }
+
+      res.json({ message: "Details saved to Azure Blob Storage" });
     } catch (error) {
-      console.error("Invalid skillRatings format:", error.message); // Debugging log
-      return res.status(400).json({ error: "Invalid skillRatings format" });
+      console.error("Error during upload:", error); // Debugging log
+      res.status(500).json({
+        error: "Failed to save details to Azure Blob Storage",
+        details: error.message,
+      });
     }
-
-    console.log("Validated skillRatings:", skillRatings); // Debugging log
-
-    // Generate unique timestamp for consistent naming
-    const timestamp = Date.now();
-
-    // Upload the resume file to Azure Blob Storage
-    const resumeBlobName = `${req.body.name}-${timestamp}${path.extname(
-      req.file.originalname
-    )}`;
-    const resumeBlobClient = containerClient.getBlockBlobClient(resumeBlobName);
-
-    console.log("Uploading resume to Azure Blob Storage:", resumeBlobName);
-    await resumeBlobClient.uploadFile(req.file.path);
-    console.log("Resume uploaded successfully:", resumeBlobName);
-
-    // Prepare metadata
-    const metadataBlobName = `${req.body.name}-${timestamp}.json`;
-    const metadataBlobClient =
-      containerClient.getBlockBlobClient(metadataBlobName);
-
-    const metadata = {
-      name: req.body.name,
-      email: req.body.email,
-      phone: req.body.phone,
-      skills: JSON.parse(req.body.skills),
-      skillRatings, // Use validated skillRatings
-      github: req.body.github || "Empty", // Handle optional GitHub URL
-      linkedin: req.body.linkedin || "Empty", // Handle optional LinkedIn URL
-      additionalInfo: req.body.additionalInfo || "",
-      availability: req.body.availability || "",
-    };
-
-    console.log("Prepared metadata:", metadata); // Debugging log
-
-    console.log("Uploading metadata to Azure Blob Storage:", metadataBlobName);
-    await metadataBlobClient.upload(
-      JSON.stringify(metadata),
-      Buffer.byteLength(JSON.stringify(metadata))
-    );
-    console.log("Metadata uploaded successfully:", metadataBlobName);
-
-    // Clean up temporary file
-    fs.unlinkSync(req.file.path);
-    console.log("Temporary file deleted:", req.file.path);
-
-    res.json({ message: "Details saved to Azure Blob Storage" });
-  } catch (error) {
-    console.error("Error during upload:", error); // Debugging log
-    res.status(500).json({
-      error: "Failed to save details to Azure Blob Storage",
-      details: error.message,
-    });
   }
-});
+);
 
 // Endpoint to fetch details from Azure Blob Storage
 app.get("/fetch-details", async (req, res) => {

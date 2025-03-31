@@ -9,6 +9,7 @@ const Arviointinäkymä = () => {
   const [fetchedDetails, setFetchedDetails] = useState([]);
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [expandedDetails, setExpandedDetails] = useState({}); // Track expanded state for each detail
+  const [enlargedImage, setEnlargedImage] = useState(null); // State for enlarged profile picture
 
   const toggleDetail = (index) => {
     setExpandedDetails((prevState) => ({
@@ -28,6 +29,7 @@ const Arviointinäkymä = () => {
         for (const blob of data.blobs) {
           const isJson = blob.endsWith(".json");
           const isPdf = blob.endsWith(".pdf");
+          const isImage = blob.endsWith(".jpg") || blob.endsWith(".png");
           const blobName = blob.split("-")[0];
 
           if (isJson) {
@@ -36,7 +38,11 @@ const Arviointinäkymä = () => {
             );
             if (metadataResponse.ok) {
               const metadata = await metadataResponse.json();
-              details.push({ ...metadata, resumeUrl: null });
+              details.push({
+                ...metadata,
+                resumeUrl: null,
+                profilePictureUrl: null,
+              });
             }
           } else if (isPdf) {
             const matchingDetail = details.find(
@@ -48,6 +54,18 @@ const Arviointinäkymä = () => {
               details.push({
                 name: blobName,
                 resumeUrl: `http://localhost:5000/files/${blob}`,
+              });
+            }
+          } else if (isImage) {
+            const matchingDetail = details.find(
+              (detail) => detail.name === blobName
+            );
+            if (matchingDetail) {
+              matchingDetail.profilePictureUrl = `http://localhost:5000/files/${blob}`;
+            } else {
+              details.push({
+                name: blobName,
+                profilePictureUrl: `http://localhost:5000/files/${blob}`,
               });
             }
           }
@@ -80,6 +98,24 @@ const Arviointinäkymä = () => {
                   style={{ cursor: "pointer" }}
                 >
                   <h5 className="card-title mb-0">{detail.name}</h5>
+                  {detail.profilePictureUrl && (
+                    <img
+                      src={detail.profilePictureUrl}
+                      alt="Profile"
+                      className="rounded-circle"
+                      style={{
+                        width: expandedDetails[index] ? "70px" : "50px", // Enlarge when expanded
+                        height: expandedDetails[index] ? "70px" : "50px", // Enlarge when expanded
+                        objectFit: "cover",
+                        transition: "width 0.3s, height 0.3s", // Smooth transition
+                        cursor: "pointer",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering card toggle
+                        setEnlargedImage(detail.profilePictureUrl);
+                      }}
+                    />
+                  )}
                   <span>
                     {expandedDetails[index] ? "▼" : "▶︎"}{" "}
                     {/* Expand/Collapse indicator */}
@@ -168,6 +204,39 @@ const Arviointinäkymä = () => {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setSelectedPdf(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {enlargedImage && (
+        <div className="modal d-block" tabIndex="-1">
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Profile Picture</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setEnlargedImage(null)}
+                ></button>
+              </div>
+              <div className="modal-body text-center">
+                <img
+                  src={enlargedImage}
+                  alt="Enlarged Profile"
+                  className="img-fluid rounded"
+                />
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setEnlargedImage(null)}
                 >
                   Close
                 </button>
