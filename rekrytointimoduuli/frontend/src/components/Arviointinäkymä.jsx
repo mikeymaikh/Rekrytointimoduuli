@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { Worker, Viewer } from "@react-pdf-viewer/core"; // Use project-centered path for react-pdf-viewer
-import "@react-pdf-viewer/core/lib/styles/index.css"; // Use project-centered path for styles
+import { Worker, Viewer } from "@react-pdf-viewer/core";
+import "@react-pdf-viewer/core/lib/styles/index.css";
 import "@react-pdf-viewer/default-layout/lib/styles/index.css";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "./Arviointinäkymä.css"; // Add custom styles if needed
 
 const Arviointinäkymä = () => {
   const [fetchedDetails, setFetchedDetails] = useState([]);
-  const [selectedPdf, setSelectedPdf] = useState(null); // State to track the selected PDF
+  const [selectedPdf, setSelectedPdf] = useState(null);
+  const [expandedDetails, setExpandedDetails] = useState({}); // Track expanded state for each detail
+
+  const toggleDetail = (index) => {
+    setExpandedDetails((prevState) => ({
+      ...prevState,
+      [index]: !prevState[index],
+    }));
+  };
 
   const fetchDetails = async () => {
     try {
-      console.log("Fetching details from localhost API...");
-
       const response = await fetch("http://localhost:5000/fetch-details");
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
       if (data && Array.isArray(data.blobs)) {
         const details = [];
@@ -39,7 +45,6 @@ const Arviointinäkymä = () => {
             if (matchingDetail) {
               matchingDetail.resumeUrl = `http://localhost:5000/files/${blob}`;
             } else {
-              // Handle case where PDF exists without metadata
               details.push({
                 name: blobName,
                 resumeUrl: `http://localhost:5000/files/${blob}`,
@@ -49,10 +54,6 @@ const Arviointinäkymä = () => {
         }
         setFetchedDetails(details);
       } else {
-        console.error(
-          "API response does not contain a valid blobs array:",
-          data
-        );
         setFetchedDetails([]);
       }
     } catch (error) {
@@ -66,70 +67,113 @@ const Arviointinäkymä = () => {
   }, []);
 
   return (
-    <div>
-      <h2>Arviointinäkymä</h2>
+    <div className="container bg-light p-5 rounded shadow-lg">
+      <h2 className="text-center text-primary mb-4">Arviointinäkymä</h2>
       {fetchedDetails.length > 0 ? (
-        fetchedDetails.map((detail, index) => (
-          <div key={index}>
-            <h3>{detail.name}</h3>
-            {detail.email && <p>Email: {detail.email}</p>}
-            {detail.phone && <p>Phone: {detail.phone}</p>}
-            {detail.skills && <p>Skills: {detail.skills.join(", ")}</p>}
-            {detail.skillRatings && (
-              <div>
-                <h3>Skill Ratings</h3>
-                {detail.skillRatings.length > 0 ? (
-                  <ul>
-                    {detail.skillRatings.map((rating, index) => (
-                      <li key={index}>
-                        <strong>Skill:</strong> {rating.skill} <br />
-                        <strong>Rating:</strong> {rating.rating} <br />
-                        <strong>Summary:</strong> {rating.summary}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>No skill ratings available.</p>
+        <div className="row">
+          {fetchedDetails.map((detail, index) => (
+            <div key={index} className="col-md-12 mb-4">
+              <div className="card shadow-sm">
+                <div
+                  className="card-header d-flex justify-content-between align-items-center"
+                  onClick={() => toggleDetail(index)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <h5 className="card-title mb-0">{detail.name}</h5>
+                  <span>
+                    {expandedDetails[index] ? "▼" : "▶︎"}{" "}
+                    {/* Expand/Collapse indicator */}
+                  </span>
+                </div>
+                {expandedDetails[index] && ( // Show details only if expanded
+                  <div className="card-body">
+                    {detail.email && (
+                      <p className="card-text">Email: {detail.email}</p>
+                    )}
+                    {detail.phone && (
+                      <p className="card-text">Phone: {detail.phone}</p>
+                    )}
+                    {detail.skills && (
+                      <p className="card-text">
+                        Skills: {detail.skills.join(", ")}
+                      </p>
+                    )}
+                    {detail.skillRatings && detail.skillRatings.length > 0 && (
+                      <div>
+                        <h6>Skill Ratings</h6>
+                        <ul className="list-group list-group-flush">
+                          {detail.skillRatings.map((rating, index) => (
+                            <li key={index} className="list-group-item">
+                              <strong>Skill:</strong> {rating.skill} <br />
+                              <strong>Rating:</strong> {rating.rating} <br />
+                              <strong>Summary:</strong> {rating.summary}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {detail.portfolio && (
+                      <p className="card-text">Portfolio: {detail.portfolio}</p>
+                    )}
+                    {detail.additionalInfo && (
+                      <p className="card-text">
+                        Additional Info: {detail.additionalInfo}
+                      </p>
+                    )}
+                    {detail.availability && (
+                      <p className="card-text">
+                        Availability: {detail.availability}
+                      </p>
+                    )}
+                    {detail.summary && (
+                      <p className="card-text">Summary: {detail.summary}</p>
+                    )}
+                    {detail.resumeUrl && (
+                      <button
+                        className="btn btn-primary mt-3"
+                        onClick={() => setSelectedPdf(detail.resumeUrl)}
+                      >
+                        View Resume
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-            {detail.portfolio && <p>Portfolio: {detail.portfolio}</p>}
-            {detail.additionalInfo && (
-              <p>Additional Info: {detail.additionalInfo}</p>
-            )}
-            {detail.availability && <p>Availability: {detail.availability}</p>}
-            {detail.summary && <p>Summary: {detail.summary}</p>}
-            {detail.resumeUrl && (
-              <p>
-                Resume:{" "}
-                <button onClick={() => setSelectedPdf(detail.resumeUrl)}>
-                  View Resume
-                </button>
-              </p>
-            )}
-          </div>
-        ))
+            </div>
+          ))}
+        </div>
       ) : (
-        <p>No details available.</p>
+        <p className="text-center">No details available.</p>
       )}
 
-      {/* Render the selected PDF using react-pdf */}
       {selectedPdf && (
-        <div
-          style={{
-            border: "1px solid #ccc",
-            marginTop: "20px",
-            width: "40vw",
-            height: "100vh",
-            maxWidth: "1200px",
-            margin: "0 auto",
-          }}
-        >
-          <h3>Resume Preview</h3>
-          <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-            <Viewer fileUrl={selectedPdf} />
-          </Worker>
-          <button onClick={() => setSelectedPdf(null)}>Close Preview</button>
+        <div className="modal d-block" tabIndex="-1">
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Resume Preview</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setSelectedPdf(null)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+                  <Viewer fileUrl={selectedPdf} />
+                </Worker>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setSelectedPdf(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
