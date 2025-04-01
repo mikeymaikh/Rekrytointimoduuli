@@ -86,7 +86,7 @@ const Arviointinäkymä = () => {
 
   return (
     <div className="container bg-light p-5 rounded shadow-lg">
-      <h2 className="text-center text-primary mb-4">Arviointinäkymä</h2>
+      <h2 className="text-center text-primary mb-4">Review Section</h2>
       {fetchedDetails.length > 0 ? (
         <div className="row">
           {fetchedDetails.map((detail, index) => (
