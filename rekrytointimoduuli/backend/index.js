@@ -26,6 +26,14 @@ console.log(
   process.env.AZURE_STORAGE_CONTAINER_NAME || "undefined"
 );
 
+// Load environment variables
+const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+if (!connectionString) {
+  console.error("Error: AZURE_STORAGE_CONNECTION_STRING is not defined.");
+  process.exit(1); // Exit the process with an error code
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const upload = multer({ dest: "uploads/" }); // Temporary storage for uploaded files
@@ -40,13 +48,9 @@ app.use((req, res, next) => {
 });
 
 // Azure Blob Storage configuration
-const AZURE_STORAGE_CONNECTION_STRING =
-  process.env.AZURE_STORAGE_CONNECTION_STRING;
 const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
 
-const blobServiceClient = BlobServiceClient.fromConnectionString(
-  AZURE_STORAGE_CONNECTION_STRING
-);
+const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
 const containerClient = blobServiceClient.getContainerClient(containerName);
 
 // Test route to verify server is running
@@ -146,8 +150,8 @@ app.post(
         phone: req.body.phone,
         skills: JSON.parse(req.body.skills),
         skillRatings, // Use validated skillRatings
-        github: req.body.github || "Empty", // Handle optional GitHub URL
-        linkedin: req.body.linkedin || "Empty", // Handle optional LinkedIn URL
+        github: req.body.github || "", // Handle optional GitHub URL
+        linkedin: req.body.linkedin || "", // Handle optional LinkedIn URL
         additionalInfo: req.body.additionalInfo || "",
         availability: req.body.availability || "",
         profilePicture: profilePictureBlobName, // Include profile picture blob name
@@ -194,7 +198,7 @@ app.get("/fetch-details", async (req, res) => {
     console.log("Fetching blobs from Azure Blob Storage...");
 
     // Validate environment variables
-    if (!AZURE_STORAGE_CONNECTION_STRING || !containerName) {
+    if (!connectionString || !containerName) {
       console.error(
         "Missing Azure Storage connection string or container name"
       );

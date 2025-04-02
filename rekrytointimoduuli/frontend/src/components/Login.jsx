@@ -25,7 +25,7 @@ const Login = () => {
     // Validate login credentials
     if (username === envUsername && password === envPassword) {
       localStorage.setItem("isAuthenticated", "true");
-      navigate("/arviointi");
+      navigate("/review");
     } else {
       setError("Invalid username or password");
     }

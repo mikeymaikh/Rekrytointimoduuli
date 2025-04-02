@@ -143,6 +143,32 @@ const Arviointinäkymä = () => {
                         <span className="text-primary">{detail.phone}</span>
                       </p>
                     )}
+                    {detail.github && (
+                      <p className="mb-2">
+                        <strong>GitHub:</strong>{" "}
+                        <a
+                          href={detail.github}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary"
+                        >
+                          {detail.github}
+                        </a>
+                      </p>
+                    )}
+                    {detail.linkedin && (
+                      <p className="mb-2">
+                        <strong>LinkedIn:</strong>{" "}
+                        <a
+                          href={detail.linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary"
+                        >
+                          {detail.linkedin}
+                        </a>
+                      </p>
+                    )}
                     {detail.skillRatings && detail.skillRatings.length > 0 && (
                       <div className="mb-3">
                         <h6 className="text-primary">Skill Ratings</h6>
