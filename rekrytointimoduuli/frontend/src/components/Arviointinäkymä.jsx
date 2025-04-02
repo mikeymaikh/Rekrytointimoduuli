@@ -70,6 +70,14 @@ const Arviointinäkymä = () => {
             }
           }
         }
+
+        // Sort details by timestamp (ascending order)
+        details.sort((a, b) => {
+          const aTimestamp = parseInt(a.name.split("-").pop(), 10);
+          const bTimestamp = parseInt(b.name.split("-").pop(), 10);
+          return aTimestamp - bTimestamp;
+        });
+
         setFetchedDetails(details);
       } else {
         setFetchedDetails([]);
@@ -124,49 +132,58 @@ const Arviointinäkymä = () => {
                 {expandedDetails[index] && ( // Show details only if expanded
                   <div className="card-body">
                     {detail.email && (
-                      <p className="card-text">Email: {detail.email}</p>
+                      <p className="mb-2">
+                        <strong>Email:</strong>{" "}
+                        <span className="text-primary">{detail.email}</span>
+                      </p>
                     )}
                     {detail.phone && (
-                      <p className="card-text">Phone: {detail.phone}</p>
-                    )}
-                    {detail.skills && (
-                      <p className="card-text">
-                        Skills: {detail.skills.join(", ")}
+                      <p className="mb-2">
+                        <strong>Phone:</strong>{" "}
+                        <span className="text-primary">{detail.phone}</span>
                       </p>
                     )}
                     {detail.skillRatings && detail.skillRatings.length > 0 && (
-                      <div>
-                        <h6>Skill Ratings</h6>
-                        <ul className="list-group list-group-flush">
+                      <div className="mb-3">
+                        <h6 className="text-primary">Skill Ratings</h6>
+                        <div className="row">
                           {detail.skillRatings.map((rating, index) => (
-                            <li key={index} className="list-group-item">
-                              <strong>Skill:</strong> {rating.skill} <br />
-                              <strong>Rating:</strong> {rating.rating} <br />
-                              <strong>Summary:</strong> {rating.summary}
-                            </li>
+                            <div key={index} className="col-md-6 mb-3">
+                              <div className="card border-0 shadow-sm">
+                                <div className="card-body">
+                                  <h6 className="card-title text-primary">
+                                    {rating.skill}
+                                  </h6>
+                                  <p className="mb-1">
+                                    <strong>Self-Rating:</strong>{" "}
+                                    <span className="badge bg-primary">
+                                      {rating.rating}
+                                    </span>
+                                  </p>
+                                  <p className="mb-0 text-muted">
+                                    <strong>Summary:</strong> {rating.summary}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
-                    {detail.portfolio && (
-                      <p className="card-text">Portfolio: {detail.portfolio}</p>
-                    )}
                     {detail.additionalInfo && (
-                      <p className="card-text">
-                        Additional Info: {detail.additionalInfo}
+                      <p className="mb-2">
+                        <strong>Why do you want to join?:</strong>{" "}
+                        {detail.additionalInfo}
                       </p>
                     )}
                     {detail.availability && (
-                      <p className="card-text">
-                        Availability: {detail.availability}
+                      <p className="mb-2">
+                        <strong>Availability:</strong> {detail.availability}
                       </p>
-                    )}
-                    {detail.summary && (
-                      <p className="card-text">Summary: {detail.summary}</p>
                     )}
                     {detail.resumeUrl && (
                       <button
-                        className="btn btn-primary mt-3"
+                        className="btn btn-outline-primary w-100 mt-3"
                         onClick={() => setSelectedPdf(detail.resumeUrl)}
                       >
                         View Resume
