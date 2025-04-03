@@ -50,7 +50,8 @@ app.use((req, res, next) => {
 // Azure Blob Storage configuration
 const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
 
-const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+const blobServiceClient =
+  BlobServiceClient.fromConnectionString(connectionString);
 const containerClient = blobServiceClient.getContainerClient(containerName);
 
 // Test route to verify server is running
@@ -103,8 +104,11 @@ app.post(
       // Generate unique timestamp for consistent naming
       const timestamp = Date.now();
 
+      // Combine firstName and lastName for file naming
+      const fullName = `${req.body.firstName}-${req.body.lastName}`;
+
       // Upload the resume file to Azure Blob Storage
-      const resumeBlobName = `${req.body.name}-${timestamp}${path.extname(
+      const resumeBlobName = `${fullName}-${timestamp}${path.extname(
         req.files.resume[0].originalname
       )}`;
       const resumeBlobClient =
@@ -117,9 +121,7 @@ app.post(
       // Upload the profile picture file to Azure Blob Storage (if provided)
       let profilePictureBlobName = null;
       if (req.files.profilePicture && req.files.profilePicture[0]) {
-        profilePictureBlobName = `${
-          req.body.name
-        }-profile-${timestamp}${path.extname(
+        profilePictureBlobName = `${fullName}-profile-${timestamp}${path.extname(
           req.files.profilePicture[0].originalname
         )}`;
         const profilePictureBlobClient = containerClient.getBlockBlobClient(
@@ -140,12 +142,13 @@ app.post(
       }
 
       // Prepare metadata
-      const metadataBlobName = `${req.body.name}-${timestamp}.json`;
+      const metadataBlobName = `${fullName}-${timestamp}.json`;
       const metadataBlobClient =
         containerClient.getBlockBlobClient(metadataBlobName);
 
       const metadata = {
-        name: req.body.name,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
         email: req.body.email,
         phone: req.body.phone,
         skills: JSON.parse(req.body.skills),
