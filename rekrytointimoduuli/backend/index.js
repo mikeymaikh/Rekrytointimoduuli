@@ -8,22 +8,26 @@ const {
 } = require("@azure/storage-blob");
 const path = require("path");
 const fs = require("fs");
+const nodemailer = require("nodemailer"); // Add Nodemailer library
 require("dotenv").config({
-  path: "c:/Users/Mikael/projektit/Rekrytointimoduuli/Rekrytointimoduuli-1/.env",
-}); // Explicitly load .env file
+  path: path.resolve(__dirname, "../../.env"), // Ensure this path points to the correct .env file
+});
 
-console.log("Loaded environment variables:"); // Debugging log
+// Log loaded environment variables for debugging
+console.log("Loaded environment variables:");
+console.log("EMAIL_USER:", process.env.EMAIL_USER || "undefined");
+console.log("PORT:", process.env.PORT || "undefined");
 console.log(
   "AZURE_STORAGE_ACCOUNT_NAME:",
   process.env.AZURE_STORAGE_ACCOUNT_NAME || "undefined"
 );
 console.log(
-  "AZURE_STORAGE_ACCOUNT_KEY:",
-  process.env.AZURE_STORAGE_ACCOUNT_KEY ? "Loaded" : "Missing"
-);
-console.log(
   "AZURE_STORAGE_CONTAINER_NAME:",
   process.env.AZURE_STORAGE_CONTAINER_NAME || "undefined"
+);
+console.log(
+  "AZURE_STORAGE_CONNECTION_STRING:",
+  process.env.AZURE_STORAGE_CONNECTION_STRING ? "Loaded" : "Missing"
 );
 
 // Load environment variables
@@ -53,6 +57,15 @@ const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
 const blobServiceClient =
   BlobServiceClient.fromConnectionString(connectionString);
 const containerClient = blobServiceClient.getContainerClient(containerName);
+
+// Configure Nodemailer
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER, // Your Gmail address
+    pass: process.env.EMAIL_PASS, // Your Gmail password or app-specific password
+  },
+});
 
 // Test route to verify server is running
 app.get("/test", (req, res) => {
@@ -311,8 +324,73 @@ app.get("/files/:filename", async (req, res) => {
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("Backend toimii!");
+app.delete("/delete-applicant/:applicantName", async (req, res) => {
+  try {
+    const { applicantName } = req.params;
+    console.log(`Deleting files for applicant: ${applicantName}`);
+
+    // Extract baseName and timestamp
+    const parts = applicantName.split("-");
+    const timestamp = parts.pop(); // Extract the last part as the timestamp
+    const baseName = parts.join("-"); // Join the remaining parts as the base name
+
+    const blobsToDelete = [];
+    for await (const blob of containerClient.listBlobsFlat()) {
+      // Match blobs that start with applicantName-timestamp or applicantName-profile-timestamp
+      if (
+        blob.name === `${baseName}-${timestamp}.json` || // Matches metadata file
+        blob.name === `${baseName}-${timestamp}.pdf` || // Matches resume file
+        blob.name === `${baseName}-profile-${timestamp}.jpg` || // Matches profile picture (jpg)
+        blob.name === `${baseName}-profile-${timestamp}.png` // Matches profile picture (png)
+      ) {
+        blobsToDelete.push(blob.name);
+      }
+    }
+
+    if (blobsToDelete.length === 0) {
+      console.error(`No files found for applicant: ${applicantName}`);
+      return res.status(404).json({ error: "Applicant not found" });
+    }
+
+    for (const blobName of blobsToDelete) {
+      const blobClient = containerClient.getBlobClient(blobName);
+      await blobClient.delete();
+      console.log(`Deleted blob: ${blobName}`);
+    }
+
+    res.json({ message: "Applicant successfully deleted" });
+  } catch (error) {
+    console.error("Error deleting applicant files:", error.message);
+    res.status(500).json({
+      error: "Failed to delete applicant files",
+      details: error.message,
+    });
+  }
+});
+
+// Endpoint to send rejection email
+app.post("/send-rejection-email", async (req, res) => {
+  const { email, name } = req.body;
+
+  if (!email || !name) {
+    return res.status(400).json({ error: "Email and name are required" });
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Application Status Update",
+    text: `Dear ${name},\n\nThank you for applying. Unfortunately, you were not selected for the role this time. We wish you the best in your future endeavors.\n\nBest regards,\nRecruitment Team`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Rejection email sent to ${email}`);
+    res.json({ message: "Rejection email sent successfully" });
+  } catch (error) {
+    console.error("Error sending rejection email:", error.message);
+    res.status(500).json({ error: "Failed to send rejection email" });
+  }
 });
 
 // Catch-all route for undefined endpoints

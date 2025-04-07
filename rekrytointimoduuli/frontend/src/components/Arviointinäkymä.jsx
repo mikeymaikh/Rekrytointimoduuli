@@ -30,7 +30,27 @@ const Arviointinäkymä = () => {
           const isJson = blob.endsWith(".json");
           const isPdf = blob.endsWith(".pdf");
           const isImage = blob.endsWith(".jpg") || blob.endsWith(".png");
-          const blobName = blob.split("-")[0];
+          const parts = blob.split("-");
+          const isProfile = parts.includes("profile"); // Check if it's a profile picture
+          const blobName = isProfile
+            ? parts.slice(0, -2).join("-") // Exclude "-profile" and timestamp
+            : parts.slice(0, -1).join("-"); // Exclude only timestamp
+          const timestamp = parts[parts.length - 1].split(".")[0]; // Extract timestamp
+
+          let matchingDetail = details.find(
+            (detail) =>
+              detail.name === blobName && detail.timestamp === timestamp
+          );
+
+          if (!matchingDetail) {
+            matchingDetail = {
+              name: blobName,
+              timestamp,
+              resumeUrl: null,
+              profilePictureUrl: null,
+            };
+            details.push(matchingDetail);
+          }
 
           if (isJson) {
             const metadataResponse = await fetch(
@@ -38,45 +58,19 @@ const Arviointinäkymä = () => {
             );
             if (metadataResponse.ok) {
               const metadata = await metadataResponse.json();
-              details.push({
-                ...metadata,
-                resumeUrl: null,
-                profilePictureUrl: null,
-              });
+              Object.assign(matchingDetail, metadata);
             }
           } else if (isPdf) {
-            const matchingDetail = details.find(
-              (detail) => detail.name === blobName
-            );
-            if (matchingDetail) {
-              matchingDetail.resumeUrl = `http://localhost:5000/files/${blob}`;
-            } else {
-              details.push({
-                name: blobName,
-                resumeUrl: `http://localhost:5000/files/${blob}`,
-              });
-            }
-          } else if (isImage) {
-            const matchingDetail = details.find(
-              (detail) => detail.name === blobName
-            );
-            if (matchingDetail) {
-              matchingDetail.profilePictureUrl = `http://localhost:5000/files/${blob}`;
-            } else {
-              details.push({
-                name: blobName,
-                profilePictureUrl: `http://localhost:5000/files/${blob}`,
-              });
-            }
+            matchingDetail.resumeUrl = `http://localhost:5000/files/${blob}`;
+          } else if (isImage && isProfile) {
+            matchingDetail.profilePictureUrl = `http://localhost:5000/files/${blob}`;
           }
         }
 
         // Sort details by timestamp (ascending order)
-        details.sort((a, b) => {
-          const aTimestamp = parseInt(a.name.split("-").pop(), 10);
-          const bTimestamp = parseInt(b.name.split("-").pop(), 10);
-          return aTimestamp - bTimestamp;
-        });
+        details.sort(
+          (a, b) => parseInt(a.timestamp, 10) - parseInt(b.timestamp, 10)
+        );
 
         setFetchedDetails(details);
       } else {
@@ -88,114 +82,179 @@ const Arviointinäkymä = () => {
     }
   };
 
+  const sendRejectionEmail = async (email, name) => {
+    try {
+      const response = await fetch(
+        "http://localhost:5000/send-rejection-email",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, name }),
+        }
+      );
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      alert(`Rejection email sent to ${email}.`);
+    } catch (error) {
+      console.error("Error sending rejection email:", error);
+      alert(
+        "Failed to send rejection email. Check console for more information."
+      );
+    }
+  };
+
+  const deleteApplicant = async (applicantName, timestamp) => {
+    if (!window.confirm("Are you sure you want to decline this applicant?")) {
+      return;
+    }
+    try {
+      const applicantNameWithTimestamp = `${applicantName}-${timestamp}`;
+      const response = await fetch(
+        `http://localhost:5000/delete-applicant/${applicantNameWithTimestamp}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      const deletedApplicant = fetchedDetails.find(
+        (detail) =>
+          detail.name === applicantName && detail.timestamp === timestamp
+      );
+      setFetchedDetails((prevDetails) =>
+        prevDetails.filter(
+          (detail) =>
+            detail.name !== applicantName || detail.timestamp !== timestamp
+        )
+      );
+      alert("Applicant successfully declined.");
+      if (deletedApplicant?.email) {
+        await sendRejectionEmail(deletedApplicant.email, deletedApplicant.name);
+      }
+    } catch (error) {
+      console.error("Error deleting applicant:", error);
+      alert("Failed to decline applicant. Check console for more information.");
+    }
+  };
+
   useEffect(() => {
     fetchDetails();
   }, []);
 
+  const isValidUrl = (url) => {
+    return url && url.trim() && !url.trim().toLowerCase().includes("empty");
+  };
+
+  const formatName = (name) => name.replace(/-/g, " ");
+
   return (
-    <div className="container bg-light p-5 rounded shadow-lg">
+    <div className="container bg-light p-5 rounded shadow-lg arviointi-container">
       <h2 className="text-center text-primary mb-4">Review Section</h2>
       {fetchedDetails.length > 0 ? (
         <div className="row">
           {fetchedDetails.map((detail, index) => (
             <div key={index} className="col-md-12 mb-4">
-              <div className="card shadow-sm">
+              <div className="card shadow-sm arviointi-card">
                 <div
-                  className="card-header d-flex justify-content-between align-items-center"
+                  className="card-header d-flex justify-content-between align-items-center arviointi-card-header"
                   onClick={() => toggleDetail(index)}
-                  style={{ cursor: "pointer" }}
                 >
-                  <h5 className="card-title mb-0">{detail.name}</h5>
+                  <h5 className="card-title mb-0 text-primary me-3">
+                    {formatName(detail.name)}
+                  </h5>
+                  {"  "}
                   {detail.profilePictureUrl && (
                     <img
                       src={detail.profilePictureUrl}
                       alt="Profile"
-                      className="rounded-circle"
-                      style={{
-                        width: expandedDetails[index] ? "70px" : "50px", // Enlarge when expanded
-                        height: expandedDetails[index] ? "70px" : "50px", // Enlarge when expanded
-                        objectFit: "cover",
-                        transition: "width 0.3s, height 0.3s", // Smooth transition
-                        cursor: "pointer",
-                      }}
+                      className={`rounded-circle arviointi-profile-picture ${
+                        expandedDetails[index] ? "expanded" : ""
+                      } me-2`}
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent triggering card toggle
+                        e.stopPropagation();
                         setEnlargedImage(detail.profilePictureUrl);
                       }}
                     />
                   )}
-                  <span>
-                    {expandedDetails[index] ? "▼" : "▶︎"}{" "}
-                    {/* Expand/Collapse indicator */}
-                  </span>
+                  <span>{expandedDetails[index] ? "▼" : "▶︎"}</span>
                 </div>
-                {expandedDetails[index] && ( // Show details only if expanded
+                {expandedDetails[index] && (
                   <div className="card-body">
-                    {detail.email && (
-                      <p className="mb-2">
-                        <strong>Email:</strong>{" "}
-                        <span className="text-primary">{detail.email}</span>
-                      </p>
-                    )}
-                    {detail.phone && (
-                      <p className="mb-2">
-                        <strong>Phone:</strong>{" "}
-                        <span className="text-primary">{detail.phone}</span>
-                      </p>
-                    )}
-                    {detail.github && (
-                      <p className="mb-2">
-                        <strong>GitHub:</strong>{" "}
-                        <a
-                          href={detail.github}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary"
-                        >
-                          {detail.github}
-                        </a>
-                      </p>
-                    )}
-                    {detail.linkedin && (
-                      <p className="mb-2">
-                        <strong>LinkedIn:</strong>{" "}
-                        <a
-                          href={detail.linkedin}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary"
-                        >
-                          {detail.linkedin}
-                        </a>
-                      </p>
-                    )}
-                    {detail.skillRatings && detail.skillRatings.length > 0 && (
-                      <div className="mb-3">
-                        <h6 className="text-primary">Skill Ratings</h6>
+                    <div className="d-flex flex-wrap">
+                      <div className="flex-grow-1 me-3">
+                        {/* Left section */}
                         <div className="row">
-                          {detail.skillRatings.map((rating, index) => (
-                            <div key={index} className="col-md-6 mb-3">
-                              <div className="card border-0 shadow-sm">
-                                <div className="card-body">
-                                  <h6 className="card-title text-primary">
-                                    {rating.skill}
-                                  </h6>
-                                  <p className="mb-1">
-                                    <strong>Self-Rating:</strong>{" "}
-                                    <span className="badge bg-primary">
-                                      {rating.rating}
-                                    </span>
-                                  </p>
-                                  <p className="mb-0 text-muted">
-                                    <strong>Summary:</strong> {rating.summary}
-                                  </p>
-                                </div>
-                              </div>
+                          {detail.email && (
+                            <div className="col-md-6 mb-2">
+                              <strong>Email:</strong>
+                              <div className="text-primary">{detail.email}</div>
                             </div>
-                          ))}
+                          )}
+                          {detail.phone && (
+                            <div className="col-md-6 mb-2">
+                              <strong>Phone:</strong>
+                              <div className="text-primary">{detail.phone}</div>
+                            </div>
+                          )}
+                          {isValidUrl(detail.github) && (
+                            <div className="col-md-6 mb-2">
+                              <a
+                                href={detail.github.trim()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary"
+                              >
+                                GitHub Profile
+                              </a>
+                            </div>
+                          )}
+                          {isValidUrl(detail.linkedin) && (
+                            <div className="col-md-6 mb-2">
+                              <a
+                                href={detail.linkedin.trim()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary"
+                              >
+                                LinkedIn Profile
+                              </a>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
+                      <div className="flex-grow-1">
+                        {/* Right section */}
+                        {detail.skillRatings &&
+                          detail.skillRatings.length > 0 && (
+                            <div className="mb-3">
+                              <h6 className="text-primary">Skill Ratings</h6>
+                              <div className="list-group">
+                                {detail.skillRatings.map((rating, index) => (
+                                  <div
+                                    key={index}
+                                    className="list-group-item arviointi-skill-card"
+                                  >
+                                    <h6 className="text-primary">
+                                      {rating.skill}
+                                    </h6>
+                                    <p className="mb-1">
+                                      <strong>Self-Rating:</strong>{" "}
+                                      <span className="badge arviointi-skill-badge">
+                                        {rating.rating}
+                                      </span>
+                                    </p>
+                                    <p className="mb-0 text-muted">
+                                      <strong>Summary:</strong> {rating.summary}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    </div>
                     {detail.additionalInfo && (
                       <p className="mb-2">
                         <strong>Why do you want to join?:</strong>{" "}
@@ -215,6 +274,14 @@ const Arviointinäkymä = () => {
                         View Resume
                       </button>
                     )}
+                    <button
+                      className="btn btn-danger w-100 mt-3"
+                      onClick={() =>
+                        deleteApplicant(detail.name, detail.timestamp)
+                      }
+                    >
+                      Decline Applicant
+                    </button>
                   </div>
                 )}
               </div>
