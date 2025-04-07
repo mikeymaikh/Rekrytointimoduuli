@@ -75,7 +75,11 @@ app.get("/test", (req, res) => {
 // Ensure /upload is registered before the catch-all route
 app.post(
   "/upload",
-  upload.fields([{ name: "resume" }, { name: "profilePicture" }]),
+  upload.fields([
+    { name: "resume" },
+    { name: "profilePicture" },
+    { name: "video" }, // Add video field
+  ]),
   async (req, res) => {
     try {
       console.log("Received fields:", req.body); // Debugging log
@@ -154,6 +158,20 @@ app.post(
         );
       }
 
+      // Upload the video file to Azure Blob Storage (if provided)
+      let videoBlobName = null;
+      if (req.files.video && req.files.video[0]) {
+        videoBlobName = `${fullName}-video-${timestamp}${path.extname(
+          req.files.video[0].originalname
+        )}`;
+        const videoBlobClient =
+          containerClient.getBlockBlobClient(videoBlobName);
+
+        console.log("Uploading video to Azure Blob Storage:", videoBlobName);
+        await videoBlobClient.uploadFile(req.files.video[0].path);
+        console.log("Video uploaded successfully:", videoBlobName);
+      }
+
       // Prepare metadata
       const metadataBlobName = `${fullName}-${timestamp}.json`;
       const metadataBlobClient =
@@ -171,6 +189,7 @@ app.post(
         additionalInfo: req.body.additionalInfo || "",
         availability: req.body.availability || "",
         profilePicture: profilePictureBlobName, // Include profile picture blob name
+        video: videoBlobName, // Include video blob name
       };
 
       console.log("Prepared metadata:", metadata); // Debugging log
@@ -195,6 +214,11 @@ app.post(
           "Temporary profile picture file deleted:",
           req.files.profilePicture[0].path
         );
+      }
+
+      if (req.files.video && req.files.video[0]) {
+        fs.unlinkSync(req.files.video[0].path);
+        console.log("Temporary video file deleted:", req.files.video[0].path);
       }
 
       res.json({ message: "Details saved to Azure Blob Storage" });
@@ -341,7 +365,8 @@ app.delete("/delete-applicant/:applicantName", async (req, res) => {
         blob.name === `${baseName}-${timestamp}.json` || // Matches metadata file
         blob.name === `${baseName}-${timestamp}.pdf` || // Matches resume file
         blob.name === `${baseName}-profile-${timestamp}.jpg` || // Matches profile picture (jpg)
-        blob.name === `${baseName}-profile-${timestamp}.png` // Matches profile picture (png)
+        blob.name === `${baseName}-profile-${timestamp}.png` || // Matches profile picture (png)
+        blob.name === `${baseName}-video-${timestamp}.mp4` // Matches video file (mp4)
       ) {
         blobsToDelete.push(blob.name);
       }

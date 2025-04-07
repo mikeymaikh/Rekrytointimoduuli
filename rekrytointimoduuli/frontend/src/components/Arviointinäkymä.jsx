@@ -10,6 +10,7 @@ const Arviointinäkymä = () => {
   const [selectedPdf, setSelectedPdf] = useState(null);
   const [expandedDetails, setExpandedDetails] = useState({}); // Track expanded state for each detail
   const [enlargedImage, setEnlargedImage] = useState(null); // State for enlarged profile picture
+  const [selectedVideo, setSelectedVideo] = useState(null); // Add state for selected video
 
   const toggleDetail = (index) => {
     setExpandedDetails((prevState) => ({
@@ -29,17 +30,14 @@ const Arviointinäkymä = () => {
         for (const blob of data.blobs) {
           const isJson = blob.endsWith(".json");
           const isPdf = blob.endsWith(".pdf");
-          const isImage = blob.endsWith(".jpg") || blob.endsWith(".png");
+          const isImage = blob.includes("-profile-");
+          const isVideo = blob.endsWith(".mp4"); // Check if it's a video file
           const parts = blob.split("-");
-          const isProfile = parts.includes("profile"); // Check if it's a profile picture
-          const blobName = isProfile
-            ? parts.slice(0, -2).join("-") // Exclude "-profile" and timestamp
-            : parts.slice(0, -1).join("-"); // Exclude only timestamp
+          const blobName = parts.slice(0, -1).join("-"); // Exclude timestamp
           const timestamp = parts[parts.length - 1].split(".")[0]; // Extract timestamp
 
           let matchingDetail = details.find(
-            (detail) =>
-              detail.name === blobName && detail.timestamp === timestamp
+            (detail) => detail.timestamp === timestamp
           );
 
           if (!matchingDetail) {
@@ -48,6 +46,8 @@ const Arviointinäkymä = () => {
               timestamp,
               resumeUrl: null,
               profilePictureUrl: null,
+              videoUrl: null,
+              isVideo: false, // Add isVideo field
             };
             details.push(matchingDetail);
           }
@@ -62,15 +62,13 @@ const Arviointinäkymä = () => {
             }
           } else if (isPdf) {
             matchingDetail.resumeUrl = `http://localhost:5000/files/${blob}`;
-          } else if (isImage && isProfile) {
+          } else if (isImage) {
             matchingDetail.profilePictureUrl = `http://localhost:5000/files/${blob}`;
+          } else if (isVideo) {
+            matchingDetail.videoUrl = `http://localhost:5000/files/${blob}`;
+            matchingDetail.isVideo = true; // Set isVideo to true if a video exists
           }
         }
-
-        // Sort details by timestamp (ascending order)
-        details.sort(
-          (a, b) => parseInt(a.timestamp, 10) - parseInt(b.timestamp, 10)
-        );
 
         setFetchedDetails(details);
       } else {
@@ -266,14 +264,25 @@ const Arviointinäkymä = () => {
                         <strong>Availability:</strong> {detail.availability}
                       </p>
                     )}
-                    {detail.resumeUrl && (
-                      <button
-                        className="btn btn-outline-primary w-100 mt-3"
-                        onClick={() => setSelectedPdf(detail.resumeUrl)}
-                      >
-                        View Resume
-                      </button>
-                    )}
+                    <div className="d-flex justify-content-between mt-3">
+                      {detail.resumeUrl && (
+                        <button
+                          className="btn btn-primary w-50 me-2 d-flex align-items-center justify-content-center"
+                          onClick={() => setSelectedPdf(detail.resumeUrl)}
+                        >
+                          <i className="bi bi-file-earmark-text me-2"></i> View
+                          Resume
+                        </button>
+                      )}
+                      {detail.videoUrl && (
+                        <button
+                          className="btn btn-success w-50 d-flex align-items-center justify-content-center"
+                          onClick={() => setSelectedVideo(detail.videoUrl)}
+                        >
+                          <i className="bi bi-play-circle me-2"></i> View Video
+                        </button>
+                      )}
+                    </div>
                     <button
                       className="btn btn-danger w-100 mt-3"
                       onClick={() =>
@@ -347,6 +356,40 @@ const Arviointinäkymä = () => {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setEnlargedImage(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedVideo && (
+        <div className="modal fade show d-block" tabIndex="-1">
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Video Preview</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setSelectedVideo(null)}
+                ></button>
+              </div>
+              <div className="modal-body text-center">
+                <video
+                  controls
+                  className="w-100 rounded shadow-sm"
+                  src={selectedVideo}
+                  alt="Applicant Video"
+                />
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setSelectedVideo(null)}
                 >
                   Close
                 </button>
